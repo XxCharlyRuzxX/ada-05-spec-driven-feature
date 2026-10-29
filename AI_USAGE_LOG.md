@@ -208,3 +208,21 @@ Este bloque documenta la auditoría, diseño de guardrails, adaptadores y experi
   - `results/after-agent-run.md`
   - `REPOSITORY_READINESS_AUDIT.md` (Sección AFTER y delta)
   - `results/readiness-improvement-report.md`
+
+---
+
+## Entrada 11: Corrección de Dependencia `email-validator` para CI en GitHub Actions
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Mantenimiento CI / GitHub Actions
+- **Intención / Prompt clave**:
+  > *"Corregir fallo en workflow de GitHub Actions por falta de email_validator al importar pydantic EmailStr."*
+- **Propuesta de la IA**:
+  - Identificó que `pydantic` requiere el paquete `email-validator` cuando se utiliza el tipo `EmailStr` en los esquemas (`src/schemas/customer.py`). En entornos limpios de CI (`ubuntu-latest`), `pip install -r requirements.txt` no instalaba dicha dependencia.
+  - Añadió `email-validator>=2.0.0` a `requirements.txt`.
+- **Decisión y Criterio Humano**:
+  - **Aceptado**: Se incorporó explícitamente a `requirements.txt` asegurando paridad completa y reproducible en el runner de GitHub Actions.
+- **Impacto / Artefactos modificados**:
+  - `requirements.txt`
+  - `AI_USAGE_LOG.md`
+
