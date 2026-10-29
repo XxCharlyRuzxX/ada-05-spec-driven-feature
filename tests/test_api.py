@@ -5,6 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.schemas.customer import Customer
+from src.repositories.customer_repository import CustomerRepository
+from src.services.customer_service import CustomerSearchService
+from src.api.v1.customers import get_customer_search_service
 
 client = TestClient(app)
 
@@ -92,3 +96,89 @@ class TestCustomerSearchAPI:
         duration_ms = (time.perf_counter() - start) * 1000
         assert response.status_code == 200
         assert duration_ms < 150, f"Response took {duration_ms:.2f}ms which exceeds 150ms limit"
+
+    def test_search_filter_is_active_true(self):
+        """Requesting GET /api/v1/customers/search?q=doe&is_active=true returns only active customers matching 'doe'."""
+        response = client.get("/api/v1/customers/search?q=doe&is_active=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 1
+        for item in data:
+            assert item["is_active"] is True
+            assert "doe" in item["name"].lower() or "doe" in item["email"].lower()
+
+    def test_search_filter_is_active_false(self):
+        """GET /api/v1/customers/search?q=doe&is_active=false returns only inactive customers matching 'doe'."""
+        response = client.get("/api/v1/customers/search?q=doe&is_active=false")
+        assert response.status_code == 200
+        assert response.json() == []
+
+        # In seed data, Ana Garcia is inactive
+        res_ana = client.get("/api/v1/customers/search?q=ana&is_active=false")
+        assert res_ana.status_code == 200
+        ana_data = res_ana.json()
+        assert len(ana_data) >= 1
+        for item in ana_data:
+            assert item["is_active"] is False
+
+    def test_search_filter_is_active_omitted_returns_both(self):
+        """Requesting GET /api/v1/customers/search?q=doe (omitting is_active) returns backwards-compatible results."""
+        response = client.get("/api/v1/customers/search?q=doe")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 2
+        names = [item["name"] for item in data]
+        assert "Jane Doe" in names
+        assert "John Doe" in names
+
+    def test_search_filter_is_active_invalid_returns_422(self):
+        """Requesting GET /api/v1/customers/search?q=doe&is_active=invalid returns HTTP 422 Unprocessable Entity."""
+        response = client.get("/api/v1/customers/search?q=doe&is_active=invalid")
+        assert response.status_code == 422
+
+    def test_search_filter_is_active_with_mixed_dataset(self):
+        """Verify active, inactive, and omitted filtering on a dataset with both active and inactive matches."""
+        mock_customers = [
+            Customer(
+                id="mock-doe-active",
+                name="John Doe",
+                email="john.doe@example.com",
+                is_active=True,
+            ),
+            Customer(
+                id="mock-doe-inactive",
+                name="Janet Doe",
+                email="janet.doe@example.com",
+                is_active=False,
+            ),
+        ]
+        repo = CustomerRepository(customers=mock_customers)
+        mock_service = CustomerSearchService(repository=repo)
+
+        app.dependency_overrides[get_customer_search_service] = lambda: mock_service
+        try:
+            # is_active=true
+            res_true = client.get("/api/v1/customers/search?q=doe&is_active=true")
+            assert res_true.status_code == 200
+            data_true = res_true.json()
+            assert len(data_true) == 1
+            assert data_true[0]["id"] == "mock-doe-active"
+            assert data_true[0]["is_active"] is True
+
+            # is_active=false
+            res_false = client.get("/api/v1/customers/search?q=doe&is_active=false")
+            assert res_false.status_code == 200
+            data_false = res_false.json()
+            assert len(data_false) == 1
+            assert data_false[0]["id"] == "mock-doe-inactive"
+            assert data_false[0]["is_active"] is False
+
+            # is_active omitted
+            res_all = client.get("/api/v1/customers/search?q=doe")
+            assert res_all.status_code == 200
+            data_all = res_all.json()
+            assert len(data_all) == 2
+            ids = {item["id"] for item in data_all}
+            assert ids == {"mock-doe-active", "mock-doe-inactive"}
+        finally:
+            app.dependency_overrides.clear()

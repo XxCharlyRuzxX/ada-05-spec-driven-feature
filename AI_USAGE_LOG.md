@@ -86,3 +86,125 @@ Este documento registra la interacción y colaboración con herramientas de Inte
   - `tests/test_customer_service.py`
   - `tests/test_api.py`
   - `pyproject.toml`
+
+
+---
+
+# AI Usage Log - ADA-08 (Agent-Ready Repository)
+
+Este bloque documenta la auditoría, diseño de guardrails, adaptadores y experimentos comparativos BEFORE/AFTER correspondientes a la práctica ADA-08.
+
+---
+
+## Entrada 5: Auditoría Inicial BEFORE y Detección de Fricción
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Repository Readiness Audit - BEFORE
+- **Intención / Prompt clave**:
+  > *"Evaluar el repositorio baseline contra las 8 dimensiones de readiness de ADA-08, calculando puntaje y detectando puntos críticos de fricción."*
+- **Propuesta de la IA**:
+  - Sugirió calificar la dimensión de Instrucciones del Agente con 3/5 argumentando que ya existía un archivo `agents.md` con reglas básicas.
+  - Detectó que no había CI ni scripts de verificación (`0/5` en Automation & Guardrails).
+  - Identificó que las 35 pruebas unitarias pasaban pero que no había linter configurado ni protección contra archivos temporales.
+- **Decisión y Criterio Humano**:
+  - **Ajuste de calificación (Instrucciones de Agente)**: Se redujo a 2/5 (6.0/15) porque `agents.md` carecía de tabla de comandos estándar, carecía de comandos de verificación ejecutable y no tenía stop conditions explícitas, lo que genera fricción severa para cualquier agente autónomo.
+  - **Aceptado íntegramente**: Calificación global baseline de 41 / 100 y priorización de los 3 puntos de fricción principales (falta de verificación automatizada, ausencia de .gitignore con .pyc en git, y falta de mapa de navegación).
+- **Impacto / Artefactos modificados**:
+  - `REPOSITORY_READINESS_AUDIT.md` (Sección BEFORE y Top 3 friction points).
+
+---
+
+## Entrada 6: Diseño de AGENTS.md y Adaptadores de Herramientas
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Diseño de Contratos Operativos y Adaptadores
+- **Intención / Prompt clave**:
+  > *"Diseñar AGENTS.md como contrato operativo mínimo y estructurado, junto con adaptadores para GEMINI.md y CLAUDE.md sin duplicar fuentes de verdad."*
+- **Propuesta de la IA**:
+  - Propuso incluir en `AGENTS.md` un resumen de las historias de usuario y de las fórmulas de coincidencia de búsqueda tomadas de `SPEC.md`.
+  - Sugirió crear archivos independientes `GEMINI.md` y `CLAUDE.md` con instrucciones detalladas de razonamiento paso a paso.
+- **Decisión y Criterio Humano**:
+  - **Rechazado (Duplicación de requisitos)**: Se eliminó cualquier copia o resumen de requisitos funcionales dentro de `AGENTS.md` para evitar el riesgo de divergencia de especificaciones (*Spec Drift*). `AGENTS.md` solo debe declarar que `REQUIREMENTS.md` y `SPEC.md` son las fuentes de verdad.
+  - **Rechazado (Instrucciones redundantes en adaptadores)**: Se descartó duplicar reglas en `GEMINI.md` y `CLAUDE.md`. Se diseñaron como adaptadores delgados de solo 3 pasos que delegan formalmente en `AGENTS.md`.
+  - **Aceptado**: Se definieron tablas claras de Comandos Estándar, Reglas de Cambio, Condiciones de Parada y Definición de Terminado (DoD) verificable.
+- **Impacto / Artefactos modificados**:
+  - `AGENTS.md`
+  - `GEMINI.md`
+  - `CLAUDE.md`
+
+---
+
+## Entrada 7: Descubribilidad y Conocimiento Implícito a Explícito
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Análisis de Descubribilidad y Deuda de Contexto
+- **Intención / Prompt clave**:
+  > *"Identificar todo conocimiento implícito o tribal revelado durante la ejecución BEFORE que un desarrollador o agente tuvo que inferir o buscar indirectamente, y transformarlo en artefactos explícitos."*
+- **Propuesta de la IA**:
+  - Documentó IK-01 a IK-04 en `results/implicit-knowledge.md`:
+    - IK-01: El comando completo de verificación (tests + lint + contrato).
+    - IK-02: Qué archivos están protegidos contra edición directa (`README.md`, `architecture.md`, `SEED_CUSTOMERS`).
+    - IK-03: Ubicación de puntos de entrada y guía de modificación por capas.
+    - IK-04: Estándares de limpieza de repositorio (ignorar `.pyc`, `__pycache__`, `.DS_Store`).
+- **Decisión y Criterio Humano**:
+  - **Aceptado íntegramente**: Se aprobó la remediación de IK-01 mediante `./scripts/verify_repo.sh`, IK-02 e IK-03 mediante `docs/REPO_MAP.md` y `AGENTS.md`, e IK-04 mediante `.gitignore` y `scripts/check_repo_contract.py`.
+- **Impacto / Artefactos modificados**:
+  - `results/implicit-knowledge.md`
+  - `docs/REPO_MAP.md`
+  - `.gitignore`
+
+---
+
+## Entrada 8: Guardrail Determinista: check_repo_contract.py
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Automatización de Guardrails y Seguridad
+- **Intención / Prompt clave**:
+  > *"Convertir la regla crítica de integridad y readiness del repositorio en una comprobación determinista de software ejecutable por humanos, agentes y CI."*
+- **Propuesta de la IA**:
+  - Propuso un script en Python que valida la existencia de archivos esenciales (`AGENTS.md`, `README.md`, `REQUIREMENTS.md`, `SPEC.md`, `ARCHITECTURE.md`, `TASKS.md`, `docs/REPO_MAP.md`, `.gitignore`, `scripts/verify_repo.sh`).
+  - Amplió el script para verificar que `SPEC.md` referencie IDs `FR-` y `AC-`, que `AGENTS.md` contenga los comandos estándar, que exista la carpeta `results/` y que no haya archivos sensibles (`.env`, `*.key`) ni binarios `.pyc` rastreados en git.
+- **Decisión y Criterio Humano**:
+  - **Aceptado**: Se verificó que el script proporcione salidas legibles (`REPO_CONTRACT: PASS` o `REPO_CONTRACT: FAIL`) con código de salida 0 o 1 estricto, integrándose perfectamente en el pipeline.
+- **Impacto / Artefactos modificados**:
+  - `scripts/check_repo_contract.py`
+  - `.gitignore` (purga de archivos `.pyc` de git cache)
+
+---
+
+## Entrada 9: Integración Continua (CI) y Contrato de Verificación Compartido
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Verificación Reproducible y CI
+- **Intención / Prompt clave**:
+  > *"Crear un único comando de verificación para el agente y desarrollador, y asegurar que el pipeline de CI ejecute exactamente el mismo contrato."*
+- **Propuesta de la IA**:
+  - Diseñó `./scripts/verify_repo.sh` ejecutando `pytest -q`, `ruff check .` y `python3 scripts/check_repo_contract.py`.
+  - Diseñó `.github/workflows/verify.yml` para GitHub Actions ejecutando `./scripts/verify_repo.sh`.
+  - Configuró reglas de estilo y longitud de línea en `pyproject.toml` para `ruff`.
+- **Decisión y Criterio Humano**:
+  - **Aceptado**: Se comprobó que el flujo garantice paridad absoluta: si el agente ve `VERIFY_REPO: PASS` en su entorno local, el CI en GitHub Actions pasará con exactamente el mismo resultado.
+- **Impacto / Artefactos modificados**:
+  - `scripts/verify_repo.sh`
+  - `pyproject.toml`
+  - `requirements.txt` (adición de `ruff>=0.1.0`)
+  - `.github/workflows/verify.yml`
+
+---
+
+## Entrada 10: Comparación Experimental AFTER y Evaluación de Autonomía
+- **Fecha**: 2026-10-29
+- **Herramienta utilizada**: Antigravity Assistant / Gemini 3.8 Flash
+- **Etapa**: Ejecución AFTER y Evaluación Final
+- **Intención / Prompt clave**:
+  > *"Ejecutar la misma tarea CR-01 en el repositorio preparado para agentes usando el mismo prompt estricto, registrar métricas comparativas y determinar qué decisiones siguen requiriendo intervención humana."*
+- **Propuesta de la IA**:
+  - El agente del AFTER completó la implementación en menos turnos, sin fallos de comandos, modificando exactamente 4 archivos de código y pruebas, respetando todas las rutas protegidas y pasando `./scripts/verify_repo.sh` en 0.28s.
+  - La IA redactó el análisis de impacto y la auditoría AFTER arrojando un puntaje de 98/100 (delta +57).
+- **Decisión y Criterio Humano**:
+  - **Validación del resultado**: Se constató empíricamente la efectividad del concepto Agent-Ready: el agente no requirió pistas manuales, no modificó archivos fuera de alcance y entregó evidencia verificable sin ambigüedad.
+  - **Identificación de límites humanos**: Se concluyó que aunque el agente es 100% autónomo para tareas bien delimitadas dentro de los boundaries, la formulación de requisitos de negocio, la priorización y la aprobación de cambios que rompan compatibilidad o modifiquen arquitectura siguen reservadas al criterio del ingeniero humano.
+- **Impacto / Artefactos modificados**:
+  - `results/after-agent-run.md`
+  - `REPOSITORY_READINESS_AUDIT.md` (Sección AFTER y delta)
+  - `results/readiness-improvement-report.md`

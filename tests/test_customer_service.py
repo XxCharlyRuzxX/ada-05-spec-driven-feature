@@ -187,3 +187,75 @@ class TestCustomerSearchService:
         results = service.search("company")
         assert len(results) == 1
         assert results[0].id == "mock-1"
+
+    def test_search_filter_is_active_true(self):
+        service = CustomerSearchService()
+        results = service.search("doe", is_active=True)
+        assert len(results) >= 1
+        for c in results:
+            assert c.is_active is True
+        # Ana Garcia is inactive, so searching ana with is_active=True returns empty
+        assert service.search("ana", is_active=True) == []
+
+    def test_search_filter_is_active_false(self):
+        service = CustomerSearchService()
+        # In seed data, Ana Garcia is inactive
+        results = service.search("ana", is_active=False)
+        assert len(results) >= 1
+        assert any(c.name == "Ana Garcia" for c in results)
+        for c in results:
+            assert c.is_active is False
+        # In seed data, all Does are active, so is_active=False returns empty
+        assert service.search("doe", is_active=False) == []
+
+    def test_search_filter_is_active_none_returns_both(self):
+        service = CustomerSearchService()
+        results_omitted = service.search("doe")
+        results_none = service.search("doe", is_active=None)
+        assert results_omitted == results_none
+
+    def test_search_filter_is_active_with_mixed_mock_repository(self):
+        mock_customers = [
+            Customer(
+                id="mock-active",
+                name="John Doe",
+                email="john.doe@example.com",
+                is_active=True,
+            ),
+            Customer(
+                id="mock-inactive",
+                name="Janet Doe",
+                email="janet.doe@example.com",
+                is_active=False,
+            ),
+            Customer(
+                id="mock-other",
+                name="Someone Else",
+                email="someone@example.com",
+                is_active=True,
+            ),
+        ]
+        repo = CustomerRepository(customers=mock_customers)
+        service = CustomerSearchService(repository=repo)
+
+        # Filter active
+        active_results = service.search("doe", is_active=True)
+        assert len(active_results) == 1
+        assert active_results[0].id == "mock-active"
+        assert active_results[0].is_active is True
+
+        # Filter inactive
+        inactive_results = service.search("doe", is_active=False)
+        assert len(inactive_results) == 1
+        assert inactive_results[0].id == "mock-inactive"
+        assert inactive_results[0].is_active is False
+
+        # Omit / None returns both
+        all_doe_results = service.search("doe", is_active=None)
+        assert len(all_doe_results) == 2
+        ids = {c.id for c in all_doe_results}
+        assert ids == {"mock-active", "mock-inactive"}
+
+        omitted_results = service.search("doe")
+        assert len(omitted_results) == 2
+        assert {c.id for c in omitted_results} == {"mock-active", "mock-inactive"}

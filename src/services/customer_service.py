@@ -14,7 +14,7 @@ class CustomerSearchService:
         """Initialize service with customer repository."""
         self.repository = repository or CustomerRepository()
 
-    def search(self, query: str) -> List[Customer]:
+    def search(self, query: str, is_active: Optional[bool] = None) -> List[Customer]:
         """Search customers by matching sanitized query against name or email.
 
         Validation rules:
@@ -23,6 +23,7 @@ class CustomerSearchService:
 
         Matching rules:
         - Case-insensitive substring matching against customer name and email.
+        - Optional filtering by is_active boolean status (True, False, or None).
         """
         if query is None:
             raise InvalidQueryException("Query string must be at least 2 characters long")
@@ -41,6 +42,7 @@ class CustomerSearchService:
         results = [
             customer
             for customer in all_customers
-            if q_lower in customer.name.lower() or q_lower in str(customer.email).lower()
+            if (q_lower in customer.name.lower() or q_lower in str(customer.email).lower())
+            and (is_active is None or customer.is_active == is_active)
         ]
         return results
